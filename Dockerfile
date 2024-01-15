@@ -1,16 +1,24 @@
 FROM php:8.2-fpm
 
-RUN apt-get update \
-    && apt-get install -y librabbitmq-dev autoconf pkg-config libssl-dev libzip-dev git gcc make autoconf libc-dev vim unzip libpq-dev libicu-dev \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y \
+        librabbitmq-dev autoconf pkg-config libssl-dev libzip-dev git gcc make autoconf libc-dev vim unzip libpq-dev libicu-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN docker-php-ext-configure zip
-RUN docker-php-ext-install -j$(nproc) zip pdo_pgsql intl bcmath sockets
+RUN docker-php-ext-configure zip && \
+    docker-php-ext-install -j$(nproc) zip pdo_pgsql intl bcmath sockets
 
-RUN pecl install amqp xdebug \
-    && docker-php-ext-enable amqp xdebug
+# Install and enable the amqp extension
+RUN pecl install amqp && \
+    docker-php-ext-enable amqp
 
-WORKDIR /app
+# Install and enable xdebug extension (if needed)
+RUN pecl install xdebug && \
+    docker-php-ext-enable xdebug
+
+# Clean up unnecessary files to reduce image size
+RUN rm -rf /tmp/* /var/tmp/* /usr/src/php/ext/amqp/.deps
 
 RUN curl -sS https://getcomposer.org/installer | php \
     && mv composer.phar /usr/local/bin \
@@ -21,4 +29,9 @@ RUN mv /root/.symfony5/bin/symfony /usr/local/bin/symfony
 RUN git config --global user.email "davidcova88@gmail.com" \
     && git config --global user.name "DavidCova"
 
-CMD ["symfony", "server:start", "--port=8000"]
+WORKDIR /app
+
+COPY . .
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+#CMD ["symfony", "server:start", "--port=8000"]
